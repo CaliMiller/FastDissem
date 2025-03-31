@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastDissem</title>
+    <script>
+        async function updateSettings() {
+            const formData = new FormData(document.getElementById("settings-form"));
+            await fetch("/update-settings/", {
+                method: "POST",
+                body: formData
+            });
+            alert("Settings updated!");
+        }
+
+        async function postToSocial() {
+            const message = document.getElementById("message").value;
+            const data = {
+                message: message,
+                post_to_bluesky: document.getElementById("post_bluesky").checked,
+                post_to_facebook: document.getElementById("post_facebook").checked,
+                post_to_twitter: document.getElementById("post_twitter").checked
+            };
+            await fetch("/post-to-social/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+            alert("Message posted!");
+        }
+    </script>
+</head>
+<body>
+    <h1>FastDissem</h1>
+    <form id="settings-form">
+        <label>Bluesky API Key: <input type="text" name="bluesky_api_key"></label><br>
+        <label>Facebook API Key: <input type="text" name="facebook_api_key"></label><br>
+        <label>Twitter API Key: <input type="text" name="twitter_api_key"></label><br>
+        <label>YouTube API Key: <input type="text" name="youtube_api_key"></label><br>
+        <label>YouTube Channel ID: <input type="text" name="youtube_channel_id"></label><br>
+        <label>NWS Location: <input type="text" name="nws_location"></label><br>
+        <button type="button" onclick="updateSettings()">Save Settings</button>
+    </form>
+    <h2>Post a Message</h2>
+    <textarea id="message" placeholder="Enter your message..."></textarea><br>
+    <label><input type="checkbox" id="post_bluesky"> Post to Bluesky</label>
+    <label><input type="checkbox" id="post_facebook"> Post to Facebook</label>
+    <label><input type="checkbox" id="post_twitter"> Post to Twitter</label><br>
+    <button type="button" onclick="postToSocial()">Post</button>
+</body>
+</html>
