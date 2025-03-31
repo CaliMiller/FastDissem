@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+requests
+tweepy
+facebook-sdk
+atproto
+google-api-python-client
+jinja2
