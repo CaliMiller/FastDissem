@@ -50,7 +50,7 @@ if [ -d "$APP_DIR/.git" ]; then
     && git -C "$APP_DIR" pull --quiet --ff-only origin "$BRANCH" \
     || msg "Could not pull (no remote or local changes) – keeping current code"
 elif [ ! -f "$APP_DIR/fastdissem/__main__.py" ]; then
-  [ -n "$REPO" ] || die "Set REPO=https://github.com/<you>/<repo>.git"
+  [ -n "$REPO" ] || die "Set REPO=https://github.com/CaliMiller/FastDissem.git"
   msg "Cloning $REPO"
   git clone --quiet --branch "$BRANCH" "$REPO" "$APP_DIR"
 fi
