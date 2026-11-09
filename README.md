@@ -54,23 +54,23 @@ A lightweight unprivileged Debian container (1 CPU, 512 MB RAM, 4 GB disk) is pl
 
 **1. Put the code on GitHub** (one time). The repository must be **public** so the container can clone it.
 ```bash
-git remote add origin https://github.com/<you>/fast_dissem.git
+git remote add origin https://github.com/CaliMiller/FastDissem.git
 git push -u origin main
 ```
 Then edit one line in `deploy/proxmox-lxc.sh` and push again:
 ```bash
-DEFAULT_REPO="https://github.com/<you>/fast_dissem.git"
+DEFAULT_REPO="https://github.com/CaliMiller/FastDissem.git"
 ```
 
 **2. On the Proxmox host shell** (Datacenter → your node → **Shell**), run:
 ```bash
-bash -c "$(wget -qO- https://raw.githubusercontent.com/<you>/fast_dissem/main/deploy/proxmox-lxc.sh)"
+bash -c "$(wget -qO- https://raw.githubusercontent.com/CaliMiller/FastDissem/main/deploy/proxmox-lxc.sh)"
 ```
 Press Enter to accept each default (next free ID, `vmbr0`, DHCP, `local-lvm`) or type your own. It downloads the newest Debian template, creates and starts the container, installs everything, and prints the **web UI address and a generated password**.
 
 Unattended, with a static IP:
 ```bash
-IP=192.168.1.50/24 GATEWAY=192.168.1.1 bash -c "$(wget -qO- https://raw.githubusercontent.com/<you>/fast_dissem/main/deploy/proxmox-lxc.sh)" -- -y
+IP=192.168.1.50/24 GATEWAY=192.168.1.1 bash -c "$(wget -qO- https://raw.githubusercontent.com/CaliMiller/FastDissem/main/deploy/proxmox-lxc.sh)" -- -y
 ```
 
 **Afterwards**
@@ -82,7 +82,7 @@ IP=192.168.1.50/24 GATEWAY=192.168.1.1 bash -c "$(wget -qO- https://raw.githubus
 ### In a VM (or any Debian/Ubuntu machine) instead
 Inside the VM, as root:
 ```bash
-REPO=https://github.com/<you>/fast_dissem.git bash -c "$(wget -qO- https://raw.githubusercontent.com/<you>/fast_dissem/main/deploy/install.sh)"
+REPO=https://github.com/CaliMiller/FastDissem.git bash -c "$(wget -qO- https://raw.githubusercontent.com/CaliMiller/FastDissem/main/deploy/install.sh)"
 ```
 Same result: service `fastdissem`, code in `/opt/fast_dissem`, web UI on port 8787 with a generated password, `fastdissem-update` to update.
 
