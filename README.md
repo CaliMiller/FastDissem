@@ -33,7 +33,7 @@ A headless Python service that watches **YouTube channels** and **National Weath
 
 ## Quick start
 
-Requires Python 3.10+.
+Requires Python 3.10+. (For Proxmox, see the next section instead.)
 
 ```bash
 cd fast_dissem
@@ -48,6 +48,44 @@ Open **http://127.0.0.1:8787**, then in **Settings**:
 4. Look at **Preview** to see exactly what would be posted for each network, with character counts.
 5. Turn **Dry run** off in General when you're happy. (Things handled during dry run are recorded and won't be posted later.)
 
+## Install on Proxmox (LXC) – recommended
+
+A lightweight unprivileged Debian container (1 CPU, 512 MB RAM, 4 GB disk) is plenty.
+
+**1. Put the code on GitHub** (one time). The repository must be **public** so the container can clone it.
+```bash
+git remote add origin https://github.com/<you>/fast_dissem.git
+git push -u origin main
+```
+Then edit one line in `deploy/proxmox-lxc.sh` and push again:
+```bash
+DEFAULT_REPO="https://github.com/<you>/fast_dissem.git"
+```
+
+**2. On the Proxmox host shell** (Datacenter → your node → **Shell**), run:
+```bash
+bash -c "$(wget -qO- https://raw.githubusercontent.com/<you>/fast_dissem/main/deploy/proxmox-lxc.sh)"
+```
+Press Enter to accept each default (next free ID, `vmbr0`, DHCP, `local-lvm`) or type your own. It downloads the newest Debian template, creates and starts the container, installs everything, and prints the **web UI address and a generated password**.
+
+Unattended, with a static IP:
+```bash
+IP=192.168.1.50/24 GATEWAY=192.168.1.1 bash -c "$(wget -qO- https://raw.githubusercontent.com/<you>/fast_dissem/main/deploy/proxmox-lxc.sh)" -- -y
+```
+
+**Afterwards**
+- Update to the latest code from GitHub: `pct exec <CTID> -- fastdissem-update` (settings and history are kept).
+- Logs: `pct exec <CTID> -- journalctl -u fastdissem -f`
+- Forgot the password: `pct exec <CTID> -- cat /root/fastdissem-web-password.txt`
+- Proxmox backups/snapshots of the container include your settings and duplicate history (`/opt/fast_dissem/data`).
+
+### In a VM (or any Debian/Ubuntu machine) instead
+Inside the VM, as root:
+```bash
+REPO=https://github.com/<you>/fast_dissem.git bash -c "$(wget -qO- https://raw.githubusercontent.com/<you>/fast_dissem/main/deploy/install.sh)"
+```
+Same result: service `fastdissem`, code in `/opt/fast_dissem`, web UI on port 8787 with a generated password, `fastdissem-update` to update.
+
 ## Running it
 
 | Command | What it does |
@@ -60,7 +98,7 @@ Open **http://127.0.0.1:8787**, then in **Settings**:
 
 Options: `--data-dir DIR` (default `./data`, holds `config.json` and `fastdissem.db`), `--dry-run` / `--live` to override the setting, `--host`, `--port`.
 
-As a service: see `fastdissem.service` (systemd) or the `Dockerfile` (`docker run -v $PWD/data:/data -p 8787:8787 fastdissem`).
+Docker: `docker build -t fastdissem . && docker run -v $PWD/data:/data -p 8787:8787 fastdissem`.
 
 **Security:** the UI listens on `127.0.0.1` only by default. If you expose it (`0.0.0.0`, Docker), set a web password in Settings → Web UI. `config.json` contains your app password and is written with owner-only permissions. Any setting can come from the environment instead, e.g. `FASTDISSEM__PUBLISHERS__BLUESKY__APP_PASSWORD=xxxx-xxxx-xxxx-xxxx`.
 
@@ -85,6 +123,9 @@ fastdissem/
   sources/         youtube.py, nws.py
   publishers/      bluesky.py, mastodon.py, console.py, _template.py
   web/             Flask app + templates (dark theme)
+deploy/
+  proxmox-lxc.sh   run on a Proxmox host: creates an LXC and installs
+  install.sh       installs/updates on any Debian/Ubuntu (used by the above)
 tests/             offline tests: python -m pytest -q
 ```
 
