@@ -2,7 +2,7 @@
 # Fast Dissem installer for Debian / Ubuntu (Proxmox LXC, VM, or bare metal).
 #
 # Run as root inside the container/VM:
-#   bash -c "$(wget -qO- https://raw.githubusercontent.com/<you>/<repo>/main/deploy/install.sh)"
+#   bash -c "$(wget -qO- https://raw.githubusercontent.com/CaliMiller/FastDissem/main/deploy/install.sh)"
 # or, from a clone:   sudo bash deploy/install.sh
 #
 # Options (environment variables):
