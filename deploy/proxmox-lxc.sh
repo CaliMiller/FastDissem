@@ -2,7 +2,7 @@
 # Fast Dissem – Proxmox VE helper: creates a Debian LXC and installs Fast Dissem in it.
 #
 # Run on the Proxmox HOST shell (Datacenter → your node → Shell), as root:
-#   bash -c "$(wget -qO- https://raw.githubusercontent.com/<you>/<repo>/main/deploy/proxmox-lxc.sh)"
+#   bash -c "$(wget -qO- https://raw.githubusercontent.com/CaliMiller/FastDissem/main/deploy/proxmox-lxc.sh)"
 #
 # Every prompt has a default; press Enter to accept. For an unattended install,
 # set any of these and add -y:   CTID HOSTNAME CORES RAM_MB DISK_GB BRIDGE IP GATEWAY
