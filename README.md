@@ -134,3 +134,6 @@ tests/             offline tests: python -m pytest -q
 - "Include Shorts" off: detected from the RSS link, or (API mode) by checking youtube.com/shorts/<id>.
 - Bluesky's 300 limit counts visible characters (graphemes); Fast Dissem uses a close built-in approximation, which can be off by a character for rare emoji sequences. Normal text, flags and common emoji are counted exactly as Bluesky does.
 - Built-in web server is fine for a home machine; `pip install waitress` and it's used automatically.
+
+## Credits
+- Code and design developed in collaboration with Claude (Anthropic).
