@@ -12,7 +12,7 @@
 set -euo pipefail
 
 # >>> After uploading to GitHub, put your repository here (or pass REPO=...) <<<
-DEFAULT_REPO="https://github.com/CHANGE-ME/fast_dissem.git"
+DEFAULT_REPO="https://github.com/CaliMiller/FastDissem.git"
 
 REPO="${REPO:-$DEFAULT_REPO}"
 BRANCH="${BRANCH:-main}"
