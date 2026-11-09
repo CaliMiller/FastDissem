@@ -74,7 +74,7 @@ IP=192.168.1.50/24 GATEWAY=192.168.1.1 bash -c "$(wget -qO- https://raw.githubus
 ```
 
 **Afterwards**
-- Update to the latest code from GitHub: `pct exec <CTID> -- fastdissem-update` (settings and history are kept).
+- Update to the latest code from GitHub: `pct exec <CTID> -- bash /opt/fast_dissem/deploy/install.sh` — settings and history are kept. (Inside the container's console, `fastdissem-update` does the same.)
 - Logs: `pct exec <CTID> -- journalctl -u fastdissem -f`
 - Forgot the password: `pct exec <CTID> -- cat /root/fastdissem-web-password.txt`
 - Proxmox backups/snapshots of the container include your settings and duplicate history (`/opt/fast_dissem/data`).

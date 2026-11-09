@@ -15,6 +15,10 @@
 
 set -euo pipefail
 
+# Everything runs inside main(), which bash reads completely before running it.
+# That keeps the install correct even when the git pull below replaces this
+# very file while it is running (that's how updates work).
+main() {
 REPO="${REPO:-https://github.com/CaliMiller/FastDissem.git}"
 BRANCH="${BRANCH:-main}"
 APP_DIR="${APP_DIR:-/opt/fast_dissem}"
@@ -133,3 +137,6 @@ fi
 echo "    Logs:      journalctl -u fastdissem -f"
 echo "    Update:    fastdissem-update"
 echo "    It starts in DRY RUN mode – nothing is posted until you turn that off in Settings."
+}
+
+main "$@"

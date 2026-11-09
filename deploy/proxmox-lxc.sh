@@ -137,7 +137,7 @@ echo
 msg "Done! Container $CTID ($CT_HOSTNAME)"
 echo "    Web UI:   http://${IPADDR}:8787"
 [ -n "$PASS" ] && echo "    Password: $PASS"
-echo "    Update:   pct exec $CTID -- fastdissem-update"
+echo "    Update:   pct exec $CTID -- bash /opt/fast_dissem/deploy/install.sh"
 echo "    Logs:     pct exec $CTID -- journalctl -u fastdissem -f"
 echo "    Console:  pct enter $CTID"
 echo "    It starts in DRY RUN mode – nothing is posted until you turn that off in Settings."
