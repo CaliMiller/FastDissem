@@ -1,0 +1,95 @@
+# Fast Dissem (Fast Dissemination)
+
+A headless Python service that watches **YouTube channels** and **National Weather Service alerts** and posts them to **Bluesky** (and Mastodon), with a dark-mode web UI for settings. New networks plug in as single files.
+
+## What it does
+
+**YouTube → Bluesky**
+- Watches any number of channels (enter `@handle`, a channel URL, or a `UC…` id — the id is looked up when you save).
+- Posts the video title, your default hashtags, per-channel hashtags, then the video's own tags converted to hashtags (`severe weather` → `#SevereWeather`; pure numbers dropped).
+- Attaches a link card with the thumbnail; Bluesky shows YouTube cards as a **playable video in the feed**.
+- Without an API key it uses the channel RSS feed and takes tags from `#hashtags` in the description. With a free **YouTube Data API v3 key** it reads real video tags, waits for scheduled premieres to go live, and avoids RSS hiccups.
+
+**NWS alerts → Bluesky**
+- Watches county codes (`INC097` = Marion Co., IN) and/or forecast zones (`INZ040`).
+- Example post:
+  ```
+  🔴 Tornado Warning
+  📍 Boone, Hamilton, Marion counties, IN
+  ⏰ Until 4:45 PM EST
+  Tornado: radar indicated, 60 mph gusts, quarter-size (1") hail.
+
+  #INwx #WeatherAlert
+  ```
+  Markers: 🔴 warning · 🟠 watch · 🟡 advisory · 🔵 statement · 🚨 emergency. Future alerts show a range: `⏰ From 7 PM EST Tue 11/10 until 7 AM EST Wed 11/11`. Winter/flood/etc. alerts use the NWS "WHAT…" summary.
+- **Abbreviations** (`Severe Thunderstorm` → `Svr T-Storm`, `County` → `Co.`, `accumulations` → `accum.` …) are applied **only when a post would otherwise be too long** (or always/never — your choice). The list is editable in Settings.
+- If it still doesn't fit, it trims in this order: video/extra tags → detail line → (shortens) area/time lines → long title → default hashtags.
+- Filters: minimum severity, only/never these alert types, post updates or cancellations (off by default to avoid spam). Test messages and expired alerts are never posted.
+
+**No duplicates**
+- Every item has a stable id (YouTube video id, NWS alert id) stored in SQLite. An item is queued once, ever, and each network gets it at most once — across restarts, and even if two watched channels/areas both return it.
+- When you add a channel or area, what already exists is **marked as handled, not posted** (so adding a channel doesn't dump its back catalog). Turn on "backfill" for a source to change that — it's on by default for NWS so alerts already in effect get posted.
+- Failed posts retry with back-off (1, 2, 4… min, up to 5 tries); alerts that expire meanwhile are dropped. Dashboard rows have a **forget** button to allow a repost.
+
+## Quick start
+
+Requires Python 3.10+.
+
+```bash
+cd fast_dissem
+python3 -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python -m fastdissem run
+```
+Open **http://127.0.0.1:8787**, then in **Settings**:
+1. **Bluesky** – handle + an *app password* (Bluesky → Settings → Privacy and security → App passwords). Tick *Enabled*, save, click **Test connection**.
+2. **YouTube** – add channel rows, default hashtags, optional API key. Tick *Enabled*.
+3. **NWS Alerts** – add county/zone codes and a contact (website or email; NWS asks apps to identify themselves). Find codes at https://alerts.weather.gov or `https://api.weather.gov/zones?area=IN&type=county`.
+4. Look at **Preview** to see exactly what would be posted for each network, with character counts.
+5. Turn **Dry run** off in General when you're happy. (Things handled during dry run are recorded and won't be posted later.)
+
+## Running it
+
+| Command | What it does |
+|---|---|
+| `python -m fastdissem run` | engine + web UI (default) |
+| `python -m fastdissem run --no-web` | headless, engine only |
+| `python -m fastdissem once` | one check-and-post pass, then exit (for cron/Task Scheduler) |
+| `python -m fastdissem preview` | print what would be posted; posts nothing |
+| `python -m fastdissem web` | settings UI only |
+
+Options: `--data-dir DIR` (default `./data`, holds `config.json` and `fastdissem.db`), `--dry-run` / `--live` to override the setting, `--host`, `--port`.
+
+As a service: see `fastdissem.service` (systemd) or the `Dockerfile` (`docker run -v $PWD/data:/data -p 8787:8787 fastdissem`).
+
+**Security:** the UI listens on `127.0.0.1` only by default. If you expose it (`0.0.0.0`, Docker), set a web password in Settings → Web UI. `config.json` contains your app password and is written with owner-only permissions. Any setting can come from the environment instead, e.g. `FASTDISSEM__PUBLISHERS__BLUESKY__APP_PASSWORD=xxxx-xxxx-xxxx-xxxx`.
+
+Check intervals default to 5 min (YouTube) and 2 min (NWS); the minimum is 30 s. YouTube's RSS feed itself can lag new uploads by several minutes.
+
+## Adding another network (Facebook, X, Instagram, Threads…)
+
+1. Copy `fastdissem/publishers/_template.py` to e.g. `facebook.py`.
+2. Set `name`, `label`, `char_limit`, `fields` (these become the settings form) and implement `publish()` (raise on failure) and optionally `check()`.
+3. Uncomment `@register_publisher` and restart. It appears in Settings and the Preview.
+
+Text fitting, hashtags, duplicate tracking per network, retries and dry run come for free. `mastodon.py` (~60 lines) is a complete real example. The template has notes on the Facebook, X, Instagram and Threads APIs. New **sources** work the same way in `fastdissem/sources/` (subclass `Source`, implement `poll()` returning `Item`s).
+
+## Layout
+```
+fastdissem/
+  engine.py        polling loop, duplicate checks, delivery + retries
+  storage.py       SQLite (items, deliveries, activity)
+  text.py          grapheme counting, hashtags, abbreviations, fitting to limits
+  config.py        config.json + env overrides
+  plugins.py       Source / Publisher base classes and registry
+  sources/         youtube.py, nws.py
+  publishers/      bluesky.py, mastodon.py, console.py, _template.py
+  web/             Flask app + templates (dark theme)
+tests/             offline tests: python -m pytest -q
+```
+
+## Notes and limits
+- The NWS link card points to `forecast.weather.gov/showsigwx.php` for your watched zone/county; change it in NWS → Link URL if you prefer another page.
+- "Include Shorts" off: detected from the RSS link, or (API mode) by checking youtube.com/shorts/<id>.
+- Bluesky's 300 limit counts visible characters (graphemes); Fast Dissem uses a close built-in approximation, which can be off by a character for rare emoji sequences. Normal text, flags and common emoji are counted exactly as Bluesky does.
+- Built-in web server is fine for a home machine; `pip install waitress` and it's used automatically.

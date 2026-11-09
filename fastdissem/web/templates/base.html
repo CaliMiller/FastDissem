@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Fast Dissem{% endblock %}</title>
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#0d1014; --panel:#151a21; --panel-2:#1b212a; --line:#29313d; --line-2:#343e4d;
+  --text:#e7ebf1; --muted:#8e99aa; --faint:#5f6b7c;
+  --accent:#58a6ff; --accent-ink:#0b1a2c;
+  --ok:#3fb950; --warn:#d29922; --err:#f85149; --info:#58a6ff;
+  --radius:10px; --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+header.top{position:sticky;top:0;z-index:10;background:rgba(13,16,20,.92);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.top .wrap{display:flex;align-items:center;gap:22px;height:56px}
+.brand{font-weight:700;letter-spacing:.2px;display:flex;align-items:center;gap:9px;color:var(--text)}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+nav a{color:var(--muted);padding:6px 2px;margin-right:14px;font-weight:500}
+nav a.on,nav a:hover{color:var(--text);text-decoration:none}
+.spacer{flex:1}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 9px;
+  border-radius:999px;border:1px solid var(--line-2);color:var(--muted);white-space:nowrap}
+.pill.ok{color:var(--ok);border-color:rgba(63,185,80,.4);background:rgba(63,185,80,.08)}
+.pill.warn{color:var(--warn);border-color:rgba(210,153,34,.4);background:rgba(210,153,34,.08)}
+.pill.err{color:var(--err);border-color:rgba(248,81,73,.4);background:rgba(248,81,73,.08)}
+.pill.info{color:var(--info);border-color:rgba(88,166,255,.4);background:rgba(88,166,255,.08)}
+main{padding:28px 0 80px}
+h1{font-size:22px;margin:0 0 4px} h2{font-size:17px;margin:0} h3{font-size:14px;margin:0 0 8px;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.08em}
+.sub{color:var(--muted);margin:0 0 22px}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.card + .card{margin-top:16px} .grid > .card{margin-top:0}
+.card-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.muted{color:var(--muted)} .faint{color:var(--faint)} .small{font-size:13px}
+.stat{font-size:26px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em;
+  padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.table-wrap{overflow-x:auto}
+button,.btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;padding:8px 14px;cursor:pointer;
+  border:1px solid var(--line-2);background:var(--panel-2);color:var(--text)}
+button:hover,.btn:hover{border-color:var(--faint);text-decoration:none}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.primary:hover{filter:brightness(1.08)}
+button.link{background:none;border:0;padding:0;color:var(--muted);font-weight:500;font-size:13px}
+button.link:hover{color:var(--err)}
+button.ghost{background:transparent}
+form.inline{display:inline}
+label.f{display:block;margin:0 0 14px}
+label.f > span{display:block;font-weight:600;font-size:13px;margin-bottom:5px}
+.help{display:block;color:var(--muted);font-size:12.5px;margin-top:4px}
+input[type=text],input[type=password],input[type=number],select,textarea{width:100%;font:inherit;font-size:14px;
+  color:var(--text);background:var(--bg);border:1px solid var(--line-2);border-radius:8px;padding:8px 10px}
+textarea{font-family:var(--mono);font-size:13px;min-height:90px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid rgba(88,166,255,.45);border-color:var(--accent)}
+.check{display:flex;align-items:flex-start;gap:9px;margin:0 0 14px;font-weight:500}
+.check input{margin-top:3px;accent-color:var(--accent);width:16px;height:16px}
+.toggle{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;color:var(--muted)}
+.toggle input{accent-color:var(--accent);width:16px;height:16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+@media (max-width:720px){.two{grid-template-columns:1fr}}
+.rows td{padding:5px 6px;border:0} .rows th{padding:4px 6px;border:0}
+.rows input[type=text]{padding:6px 8px}
+.flash{padding:10px 14px;border-radius:8px;margin-bottom:16px;border:1px solid var(--line-2);background:var(--panel)}
+.flash.ok{border-color:rgba(63,185,80,.45)} .flash.error{border-color:rgba(248,81,73,.5)} .flash.warn{border-color:rgba(210,153,34,.5)}
+.post{white-space:pre-wrap;font-size:14.5px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.post .tag{color:var(--accent)}
+.cardprev{margin-top:8px;border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;background:var(--panel-2)}
+.cardprev img{width:120px;object-fit:cover;flex:none}
+.cardprev div{padding:8px 12px;font-size:13px;min-width:0}
+.cardprev b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.savebar{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 35%);padding:26px 0 18px;
+  display:flex;justify-content:flex-end;gap:10px}
+.sectionnav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.sectionnav a{font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+.sectionnav a:hover{color:var(--text);text-decoration:none;border-color:var(--line-2)}
+code{font-family:var(--mono);font-size:12.5px;background:var(--panel-2);padding:1px 5px;border-radius:5px}
+.banner{border:1px solid rgba(210,153,34,.45);background:rgba(210,153,34,.07);border-radius:var(--radius);
+  padding:10px 14px;margin-bottom:18px;font-size:14px}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="{{ url_for('dashboard') }}"><span class="dot"></span>Fast Dissem</a>
+  <nav>
+    <a href="{{ url_for('dashboard') }}" class="{{ 'on' if request.endpoint=='dashboard' }}">Dashboard</a>
+    <a href="{{ url_for('preview') }}" class="{{ 'on' if request.endpoint=='preview' }}">Preview</a>
+    <a href="{{ url_for('settings') }}" class="{{ 'on' if request.endpoint=='settings' }}">Settings</a>
+  </nav>
+  <div class="spacer"></div>
+  {% if dry_run %}<span class="pill warn" title="Posts are composed but not sent">● Dry run</span>
+  {% else %}<span class="pill ok">● Live</span>{% endif %}
+  {% if needs_login and session.authed %}
+  <form class="inline" method="post" action="{{ url_for('logout') }}"><input type="hidden" name="_csrf" value="{{ csrf }}">
+    <button class="link" type="submit">Sign out</button></form>{% endif %}
+</div></header>
+<main><div class="wrap">
+{% with msgs = get_flashed_messages(with_categories=true) %}{% for cat, m in msgs %}
+  <div class="flash {{ cat }}">{{ m }}</div>{% endfor %}{% endwith %}
+{% block body %}{% endblock %}
+<p class="faint small" style="margin-top:40px">Fast Dissem v{{ version }}</p>
+</div></main>
+</body>
+</html>

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_fields.html" import field %}
+{% block title %}Settings · Fast Dissem{% endblock %}
+{% block body %}
+<h1>Settings</h1>
+<p class="sub">Changes apply on save. Secrets are stored in <code>config.json</code> on this computer.</p>
+<div class="sectionnav">
+  <a href="#general">General</a>
+  {% for n, c in sources %}<a href="#src-{{ n }}">{{ c.label }}</a>{% endfor %}
+  {% for n, c in publishers %}<a href="#pub-{{ n }}">{{ c.label }}</a>{% endfor %}
+  <a href="#web">Web UI</a>
+</div>
+
+<form method="post" action="{{ url_for('save_settings') }}">
+<input type="hidden" name="_csrf" value="{{ csrf }}">
+
+<section class="card" id="general">
+  <div class="card-head"><h2>General</h2></div>
+  <div class="two">{% for f in general_fields %}<div>{{ field(f, 'general', raw.general.get(f.key)) }}</div>{% endfor %}</div>
+</section>
+
+<h3 style="margin:30px 0 12px">Sources</h3>
+{% for n, c in sources %}{% set s = raw.sources.get(n, {}) %}
+<section class="card" id="src-{{ n }}">
+  <div class="card-head">
+    <h2>{{ c.label }}</h2>
+    <label class="toggle"><input type="checkbox" name="sources.{{ n }}.enabled" value="1" {{ 'checked' if s.enabled }}> Enabled</label>
+  </div>
+  <p class="muted small" style="margin-top:-6px">{{ c.description }}</p>
+  {% for f in c.fields if f.type == 'rows' %}{{ field(f, 'sources.' ~ n, s.get(f.key)) }}{% endfor %}
+  <div class="two">
+  {% for f in source_common %}<div>{{ field(f, 'sources.' ~ n, s.get(f.key)) }}</div>{% endfor %}
+  {% for f in c.fields if f.type not in ('rows', 'textarea') %}<div>{{ field(f, 'sources.' ~ n, s.get(f.key)) }}</div>{% endfor %}
+  </div>
+  {% for f in c.fields if f.type == 'textarea' %}{{ field(f, 'sources.' ~ n, s.get(f.key)) }}{% endfor %}
+</section>
+{% endfor %}
+
+<h3 style="margin:30px 0 12px">Social networks</h3>
+{% for n, c in publishers %}{% set p = raw.publishers.get(n, {}) %}
+<section class="card" id="pub-{{ n }}">
+  <div class="card-head">
+    <h2>{{ c.label }}</h2>
+    <label class="toggle"><input type="checkbox" name="publishers.{{ n }}.enabled" value="1" {{ 'checked' if p.enabled }}> Enabled</label>
+    <div class="spacer"></div>
+    <button type="submit" formaction="{{ url_for('test_publisher', name=n) }}" class="ghost"
+      title="Uses the saved settings – save first">Test connection</button>
+  </div>
+  <p class="muted small" style="margin-top:-6px">{{ c.description }}</p>
+  <div class="two">{% for f in c.fields %}<div>{{ field(f, 'publishers.' ~ n, p.get(f.key)) }}</div>{% endfor %}</div>
+</section>
+{% endfor %}
+
+<section class="card" id="web" style="margin-top:30px">
+  <div class="card-head"><h2>Web UI</h2></div>
+  <div class="two">{% for f in web_fields %}<div>{{ field(f, 'web', raw.web.get(f.key)) }}</div>{% endfor %}</div>
+</section>
+
+<div class="savebar"><button class="primary" type="submit">Save settings</button></div>
+</form>
+
+<script>
+function addRow(btn){
+  const box = btn.parentElement, tbody = box.querySelector('tbody'), tpl = box.querySelector('template');
+  let i = 0; tbody.querySelectorAll('input').forEach(el => {
+    const m = el.name.match(/\.(\d+)\.[^.]+$/); if (m) i = Math.max(i, +m[1] + 1); });
+  const t = document.createElement('tbody'); t.innerHTML = tpl.innerHTML.replaceAll('__i__', i);
+  const tr = t.querySelector('tr'); tbody.appendChild(tr); tr.querySelector('input[type=text]')?.focus();
+}
+</script>
+{% endblock %}

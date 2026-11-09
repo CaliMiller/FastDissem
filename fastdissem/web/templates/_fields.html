@@ -1,0 +1,51 @@
+{% macro field(f, prefix, value) -%}
+{%- set name = prefix ~ '.' ~ f.key -%}
+{%- if f.type == 'bool' -%}
+  <label class="check"><input type="checkbox" name="{{ name }}" value="1" {{ 'checked' if value }}>
+    <span>{{ f.label }}{% if f.help %}<span class="help">{{ f.help }}</span>{% endif %}</span></label>
+{%- elif f.type == 'rows' -%}
+  <div class="f" style="margin-bottom:14px">
+    <span style="display:block;font-weight:600;font-size:13px;margin-bottom:5px">{{ f.label }}</span>
+    <div class="table-wrap"><table class="rows" data-rows="{{ name }}">
+      <thead><tr>{% for c in f.columns %}<th>{{ c.label }}</th>{% endfor %}<th></th></tr></thead>
+      <tbody>
+      {% for row in (value or []) %}{{ rowhtml(f, name, loop.index0, row) }}{% endfor %}
+      </tbody>
+    </table></div>
+    <template>{{ rowhtml(f, name, '__i__', {}) }}</template>
+    <button type="button" class="ghost" onclick="addRow(this)">+ Add</button>
+    {% if f.help %}<span class="help">{{ f.help }}</span>{% endif %}
+  </div>
+{%- else -%}
+  <label class="f"><span>{{ f.label }}</span>
+  {%- if f.type == 'textarea' -%}
+    <textarea name="{{ name }}" rows="{{ 10 if (value or '')|length > 300 else 4 }}">{{ value or '' }}</textarea>
+  {%- elif f.type == 'select' -%}
+    <select name="{{ name }}">{% for o in f.options %}<option value="{{ o }}" {{ 'selected' if o == value }}>{{ o|replace('_',' ') }}</option>{% endfor %}</select>
+  {%- elif f.type == 'password' -%}
+    <input type="password" name="{{ name }}" autocomplete="new-password"
+      placeholder="{{ '•••••••• saved – leave blank to keep' if value else 'not set' }}">
+    {% if value %}<label class="toggle" style="margin-top:6px"><input type="checkbox" name="__clear__{{ name }}" value="1"> Remove saved value</label>{% endif %}
+  {%- elif f.type == 'int' -%}
+    <input type="number" name="{{ name }}" value="{{ value }}">
+  {%- elif f.type == 'tags' -%}
+    <input type="text" name="{{ name }}" value="{{ (value or [])|join(', ') }}" placeholder="e.g. INwx, weather">
+  {%- else -%}
+    <input type="text" name="{{ name }}" value="{{ value if value is not none else '' }}">
+  {%- endif -%}
+  {% if f.help %}<span class="help">{{ f.help }}</span>{% endif %}
+  {% if f.type == 'tags' %}<span class="help">Comma separated. Spaces inside a tag are joined: “severe weather” → #SevereWeather.</span>{% endif %}
+  </label>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro rowhtml(f, name, i, row) -%}
+<tr>{% for c in f.columns %}<td>
+  {%- set n = name ~ '.' ~ i ~ '.' ~ c.key -%}
+  {%- if c.type == 'bool' -%}
+    <input type="checkbox" name="{{ n }}" value="1" {{ 'checked' if row.get(c.key, c.default) }}>
+  {%- else -%}
+    <input type="text" name="{{ n }}" value="{{ row.get(c.key, '') }}"{{ ' placeholder=auto' if c.key == 'channel_id' }}>
+  {%- endif -%}
+</td>{% endfor %}<td><button type="button" class="link" onclick="this.closest('tr').remove()" title="Remove">✕</button></td></tr>
+{%- endmacro %}

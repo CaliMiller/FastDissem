@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Fast Dissem{% endblock %}
+{% block body %}
+<div class="card" style="max-width:380px;margin:60px auto">
+  <h1 style="margin-bottom:16px">Sign in</h1>
+  <form method="post"><input type="hidden" name="_csrf" value="{{ csrf }}">
+    <label class="f"><span>Password</span><input type="password" name="password" autofocus></label>
+    <button class="primary" style="width:100%">Sign in</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="card-head" style="margin-bottom:6px">
+  <div><h1>Dashboard</h1><p class="sub" style="margin:0">What's being watched and what got posted.</p></div>
+  <div class="spacer"></div>
+  <form method="post" action="{{ url_for('check_now') }}"><input type="hidden" name="_csrf" value="{{ csrf }}">
+    <button class="primary">Check now</button></form>
+</div>
+{% if dry_run %}<div class="banner" style="margin-top:16px">Dry run is on: posts are composed and logged below but not sent.
+  Check them on <a href="{{ url_for('preview') }}">Preview</a>, then turn dry run off in <a href="{{ url_for('settings') }}#general">Settings</a>.</div>{% endif %}
+
+<div class="grid" style="margin-top:18px">
+{% for s in sources %}
+  <div class="card">
+    <div class="card-head" style="margin-bottom:8px"><h2>{{ s.label }}</h2><div class="spacer"></div>
+      {% if not s.enabled %}<span class="pill">off</span>
+      {% elif s.st.get('ok') == false %}<span class="pill err">error</span>
+      {% elif s.st.get('ok') %}<span class="pill ok">ok</span>
+      {% else %}<span class="pill info">waiting</span>{% endif %}</div>
+    <div class="small muted">{{ s.targets }} watched · last check {{ s.st.get('last_run')|ago }}</div>
+    {% if s.st.get('last_error') %}<div class="small" style="color:var(--err);margin-top:6px">{{ s.st.last_error }}</div>{% endif %}
+  </div>
+{% endfor %}
+  <div class="card">
+    <div class="card-head" style="margin-bottom:8px"><h2>Networks</h2></div>
+    {% for p in pubs if p.enabled %}<span class="pill ok" style="margin:0 4px 4px 0">{{ p.label }}</span>
+    {% else %}<span class="small muted">None enabled – <a href="{{ url_for('settings') }}">set one up</a>.</span>{% endfor %}
+    <div class="small muted" style="margin-top:6px">{{ counts.get('sent', 0) }} sent · {{ counts.get('seen_items', 0) }} items seen</div>
+  </div>
+</div>
+
+<section class="card" style="margin-top:22px">
+  <div class="card-head"><h2>Recent posts</h2></div>
+  {% if recent %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>When</th><th>Item</th><th>Network</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for r in recent %}<tr>
+      <td class="muted small" style="white-space:nowrap">{{ r.updated_at|ago }}</td>
+      <td>{% if r.url %}<a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.title }}</a>{% else %}{{ r.title }}{% endif %}
+        <div class="faint small">{{ r.source }}</div>
+        {% if r.last_error and r.status != 'sent' %}<div class="small" style="color:var(--err)">{{ r.last_error }}</div>{% endif %}</td>
+      <td>{{ r.publisher }}</td>
+      <td>{% set cls = {'sent':'ok','dry_run':'warn','pending':'info','failed':'err','gave_up':'err','expired':''}[r.status] %}
+        {% if r.post_url %}<a href="{{ r.post_url }}" target="_blank" rel="noopener"><span class="pill {{ cls }}">{{ r.status|replace('_',' ') }} ↗</span></a>
+        {% else %}<span class="pill {{ cls }}" title="{{ r.text or '' }}">{{ r.status|replace('_',' ') }}</span>{% endif %}</td>
+      <td><form class="inline" method="post" action="{{ url_for('forget') }}"
+            onsubmit="return confirm('Forget this item so it can be posted again?')">
+        <input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="uid" value="{{ r.uid }}">
+        <button class="link" title="Allow this item to be posted again">forget</button></form></td>
+    </tr>{% endfor %}
+    </tbody></table></div>
+  {% else %}<p class="muted">Nothing yet. New uploads and alerts will show up here.</p>{% endif %}
+</section>
+
+{% if events %}
+<section class="card">
+  <div class="card-head"><h2>Activity</h2></div>
+  <table><tbody>{% for e in events %}<tr>
+    <td class="muted small" style="white-space:nowrap;width:110px">{{ e.ts|ago }}</td>
+    <td class="small" style="{{ 'color:var(--err)' if e.level=='error' }}">{{ e.message }}</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+{% endif %}
+{% endblock %}

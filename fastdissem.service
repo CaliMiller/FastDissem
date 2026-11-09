@@ -1,0 +1,17 @@
+# systemd unit – copy to /etc/systemd/system/fastdissem.service, adjust paths/user, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now fastdissem
+[Unit]
+Description=Fast Dissem – YouTube & NWS alerts to social media
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fastdissem
+WorkingDirectory=/opt/fast_dissem
+ExecStart=/opt/fast_dissem/.venv/bin/python -m fastdissem run --data-dir /opt/fast_dissem/data
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

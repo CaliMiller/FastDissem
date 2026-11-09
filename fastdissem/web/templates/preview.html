@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Preview · Fast Dissem{% endblock %}
+{% block body %}
+<h1>Preview</h1>
+<p class="sub">What the current videos and alerts would look like on each network. Nothing is posted from this page.</p>
+{% for g in groups %}
+<section class="card">
+  <div class="card-head"><h2>{{ g.source }}</h2></div>
+  {% if g.error %}<p style="color:var(--err)">Couldn't check: {{ g.error }}</p>
+  {% elif not g['items'] %}<p class="muted">Nothing current.</p>{% endif %}
+  {% for row in g['items']|reverse %}
+    <div style="margin-bottom:22px">
+      <div class="small muted" style="margin-bottom:6px">
+        {% if row.seen %}<span class="pill">already handled</span>{% else %}<span class="pill info">new</span>{% endif %}
+        <code>{{ row.item.uid[:70] }}</code></div>
+      <div class="grid">
+      {% for label, r in row.renders.items() %}
+        <div>
+          <div class="small" style="margin-bottom:5px"><b>{{ label }}</b>
+            <span class="{{ 'muted' if r.length <= r.limit else '' }}">· {{ r.length }}/{{ r.limit }}</span>
+            {% if r.trimmed %}<span class="pill warn" title="Some tags or text were shortened to fit">trimmed</span>{% endif %}</div>
+          <div class="post">{{ r.text|e|regex_tags }}</div>
+          {% if r.card %}<div class="cardprev">{% if r.card.thumb_url %}<img src="{{ r.card.thumb_url }}" alt="">{% endif %}
+            <div><b>{{ r.card.title }}</b><span class="muted">{{ r.card.description[:120] }}</span>
+            <div class="faint">{{ r.card.url.split('/')[2] }}</div></div></div>{% endif %}
+        </div>
+      {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+</section>
+{% else %}
+<div class="card"><p class="muted">No sources are enabled. Turn one on in <a href="{{ url_for('settings') }}">Settings</a>.</p></div>
+{% endfor %}
+{% endblock %}
