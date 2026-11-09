@@ -5,7 +5,7 @@
 #   bash -c "$(wget -qO- https://raw.githubusercontent.com/<you>/<repo>/main/deploy/proxmox-lxc.sh)"
 #
 # Every prompt has a default; press Enter to accept. For an unattended install,
-# set any of these and add -y:   CTID HOSTNAME CORES RAM_MB DISK_GB BRIDGE IP GATEWAY
+# set any of these and add -y:   CTID CT_HOSTNAME CORES RAM_MB DISK_GB BRIDGE IP GATEWAY
 #                                ROOTFS_STORAGE TEMPLATE_STORAGE VLAN REPO BRANCH
 #   e.g.  IP=192.168.1.50/24 GATEWAY=192.168.1.1 bash proxmox-lxc.sh -y
 
@@ -43,7 +43,7 @@ echo
 
 # ---------------------------------------------------------------- choices
 ask CTID      "Container ID"            "$(pvesh get /cluster/nextid)"
-ask HOSTNAME  "Hostname"                "fastdissem"
+ask CT_HOSTNAME  "Hostname"                "fastdissem"
 ask CORES     "CPU cores"               "1"
 ask RAM_MB    "Memory (MB)"             "512"
 ask DISK_GB   "Disk size (GB)"          "4"
@@ -62,35 +62,52 @@ ask ROOTFS_STORAGE   "Storage for the container disk" "${DEF_ROOTFS:-local-lvm}"
 ask TEMPLATE_STORAGE "Storage for the OS template"    "${DEF_TMPL:-local}"
 
 if [ "$YES" -eq 0 ]; then
-  read -r -p "Create container $CTID ($HOSTNAME, ${CORES} CPU, ${RAM_MB} MB, ${DISK_GB} GB on $ROOTFS_STORAGE, $IP)? [Y/n]: " ok </dev/tty || true
+  read -r -p "Create container $CTID ($CT_HOSTNAME, ${CORES} CPU, ${RAM_MB} MB, ${DISK_GB} GB on $ROOTFS_STORAGE, $IP)? [Y/n]: " ok </dev/tty || true
   case "${ok:-y}" in [Yy]*) ;; *) die "Cancelled.";; esac
 fi
 
-# --------------------------------------------------------------- template
-msg "Finding the newest Debian template"
-pveam update >/dev/null 2>&1 || warn "pveam update failed; using the cached template list"
-TEMPLATE=""
-for v in 13 12; do
-  TEMPLATE="$(pveam available --section system 2>/dev/null | awk '{print $2}' | grep -E "^debian-${v}-standard_.*_amd64" | sort -V | tail -1 || true)"
-  [ -n "$TEMPLATE" ] && break
-done
-[ -n "$TEMPLATE" ] || die "No Debian 12/13 template found in 'pveam available'."
-if ! pveam list "$TEMPLATE_STORAGE" | grep -q "$TEMPLATE"; then
-  msg "Downloading $TEMPLATE"
-  pveam download "$TEMPLATE_STORAGE" "$TEMPLATE" >/dev/null
-fi
-
-# ------------------------------------------------------------------ create
+# ---------------------------------------------------------------- network
 NET="name=eth0,bridge=${BRIDGE},ip=${IP}"
 [ -n "${GATEWAY:-}" ] && NET+=",gw=${GATEWAY}"
 [ -n "${VLAN:-}" ] && NET+=",tag=${VLAN}"
 
-msg "Creating container $CTID"
-pct create "$CTID" "${TEMPLATE_STORAGE}:vztmpl/${TEMPLATE}" \
-  --hostname "$HOSTNAME" --cores "$CORES" --memory "$RAM_MB" --swap 512 \
-  --rootfs "${ROOTFS_STORAGE}:${DISK_GB}" --net0 "$NET" \
-  --unprivileged 1 --features nesting=1 --onboot 1 --timezone host \
-  --tags fastdissem --description "Fast Dissem – ${REPO}" >/dev/null
+# -------------------------------------------------------- template + create
+# Try the newest Debian first. Older Proxmox releases reject newer Debian
+# templates ("unsupported debian version"), so fall back to the next one.
+# Force a version with DEBIAN_VERSION=12 (or 13).
+msg "Updating the template list"
+pveam update >/dev/null 2>&1 || warn "pveam update failed; using the cached template list"
+AVAILABLE="$(pveam available --section system 2>/dev/null | awk '{print $2}')"
+
+CREATED=0
+for v in ${DEBIAN_VERSION:-13 12}; do
+  TEMPLATE="$(grep -E "^debian-${v}-standard_.*_amd64" <<<"$AVAILABLE" | sort -V | tail -1 || true)"
+  if [ -z "$TEMPLATE" ]; then
+    warn "No Debian $v template offered by this Proxmox host"
+    continue
+  fi
+  if ! pveam list "$TEMPLATE_STORAGE" | grep -q "$TEMPLATE"; then
+    msg "Downloading $TEMPLATE"
+    pveam download "$TEMPLATE_STORAGE" "$TEMPLATE" >/dev/null || { warn "Download failed"; continue; }
+  fi
+  msg "Creating container $CTID from $TEMPLATE"
+  if OUT="$(pct create "$CTID" "${TEMPLATE_STORAGE}:vztmpl/${TEMPLATE}" \
+      --hostname "$CT_HOSTNAME" --cores "$CORES" --memory "$RAM_MB" --swap 512 \
+      --rootfs "${ROOTFS_STORAGE}:${DISK_GB}" --net0 "$NET" \
+      --unprivileged 1 --features nesting=1 --onboot 1 --timezone host \
+      --tags fastdissem --description "Fast Dissem – ${REPO}" 2>&1)"; then
+    CREATED=1
+    break
+  fi
+  if grep -qi "unsupported debian version" <<<"$OUT"; then
+    warn "This Proxmox version doesn't support Debian $v yet; trying an older Debian"
+    pct status "$CTID" >/dev/null 2>&1 && pct destroy "$CTID" --purge >/dev/null 2>&1 || true
+    continue
+  fi
+  echo "$OUT" >&2
+  die "pct create failed."
+done
+[ "$CREATED" -eq 1 ] || die "Could not create the container with any Debian template. Try updating Proxmox (apt update && apt full-upgrade)."
 
 msg "Starting container"
 pct start "$CTID"
@@ -117,7 +134,7 @@ IPADDR="$(pct exec "$CTID" -- hostname -I 2>/dev/null | awk '{print $1}')"
 PASS="$(pct exec "$CTID" -- cat /root/fastdissem-web-password.txt 2>/dev/null || true)"
 
 echo
-msg "Done! Container $CTID ($HOSTNAME)"
+msg "Done! Container $CTID ($CT_HOSTNAME)"
 echo "    Web UI:   http://${IPADDR}:8787"
 [ -n "$PASS" ] && echo "    Password: $PASS"
 echo "    Update:   pct exec $CTID -- fastdissem-update"
