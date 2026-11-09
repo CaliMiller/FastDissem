@@ -10,8 +10,8 @@ from datetime import datetime, timezone
 from functools import wraps
 
 from markupsafe import Markup
-from flask import (Flask, abort, flash, redirect, render_template, request, session,
-                   url_for)
+from flask import (Flask, abort, flash, redirect, render_template, request,
+                   send_from_directory, session, url_for)
 
 from .. import __version__
 from ..engine import Engine, build_publishers, build_sources
@@ -134,6 +134,11 @@ def create_app(config, storage, engine: Engine) -> Flask:
         if s < 86400:
             return f"{s // 3600} h ago"
         return f"{s // 86400} d ago"
+
+    @app.get("/favicon.ico")
+    def favicon():
+        return send_from_directory(app.static_folder, "favicon.ico", mimetype="image/vnd.microsoft.icon",
+                                   max_age=86400)
 
     # ---------------------------------------------------------------- auth
     @app.route("/login", methods=["GET", "POST"])

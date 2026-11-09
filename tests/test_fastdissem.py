@@ -336,3 +336,16 @@ def test_web_settings_roundtrip(tmp_path):
     assert saved["publishers"]["bluesky"]["app_password"] == "abcd-efgh-ijkl-mnop"
     # CSRF enforced
     assert c.post("/settings", data={**form, "_csrf": "bad"}).status_code == 400
+
+
+def test_favicon_served_without_login(tmp_path):
+    from fastdissem.web import create_app
+    cfg = ConfigStore(tmp_path / "config.json")
+    c0 = cfg.raw(); c0["web"]["password"] = "secret"; cfg.save(c0)
+    st = Storage(tmp_path / "db.sqlite")
+    app = create_app(cfg, st, Engine(cfg, st))
+    c = app.test_client()
+    assert c.get("/").status_code == 302                       # login required
+    r = c.get("/favicon.ico"); assert r.status_code == 200 and r.data[:4] == b"\x00\x00\x01\x00"
+    assert c.get("/static/favicon.svg").status_code == 200
+    assert b"favicon.svg" in c.get("/login").data

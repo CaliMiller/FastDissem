@@ -82,7 +82,7 @@ IP=192.168.1.50/24 GATEWAY=192.168.1.1 bash -c "$(wget -qO- https://raw.githubus
 ### In a VM (or any Debian/Ubuntu machine) instead
 Inside the VM, as root:
 ```bash
-REPO=https://github.com/CaliMiller/FastDissem.git bash -c "$(wget -qO- https://raw.githubusercontent.com/CaliMiller/FastDissem/main/deploy/install.sh)"
+bash -c "$(wget -qO- https://raw.githubusercontent.com/CaliMiller/FastDissem/main/deploy/install.sh)"
 ```
 Same result: service `fastdissem`, code in `/opt/fast_dissem`, web UI on port 8787 with a generated password, `fastdissem-update` to update.
 

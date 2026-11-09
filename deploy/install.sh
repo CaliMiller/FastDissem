@@ -6,7 +6,7 @@
 # or, from a clone:   sudo bash deploy/install.sh
 #
 # Options (environment variables):
-#   REPO=https://github.com/<you>/<repo>.git   repository to clone (if not already cloned)
+#   REPO=https://github.com/CaliMiller/FastDissem.git   repository to clone (default)
 #   BRANCH=main                                branch to use
 #   APP_DIR=/opt/fast_dissem                   install location
 #   PORT=8787                                  web UI port
@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-REPO="${REPO:-}"
+REPO="${REPO:-https://github.com/CaliMiller/FastDissem.git}"
 BRANCH="${BRANCH:-main}"
 APP_DIR="${APP_DIR:-/opt/fast_dissem}"
 PORT="${PORT:-8787}"
@@ -50,7 +50,7 @@ if [ -d "$APP_DIR/.git" ]; then
     && git -C "$APP_DIR" pull --quiet --ff-only origin "$BRANCH" \
     || msg "Could not pull (no remote or local changes) – keeping current code"
 elif [ ! -f "$APP_DIR/fastdissem/__main__.py" ]; then
-  [ -n "$REPO" ] || die "Set REPO=https://github.com/CaliMiller/FastDissem.git"
+  [ -n "$REPO" ] || die "Set REPO=https://github.com/<owner>/<repo>.git"
   msg "Cloning $REPO"
   git clone --quiet --branch "$BRANCH" "$REPO" "$APP_DIR"
 fi

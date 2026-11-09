@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Fast Dissem{% endblock %}</title>
+<link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+<link rel="icon" href="{{ url_for('favicon') }}" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+<meta name="theme-color" content="#0d1014">
 <style>
 :root{
   color-scheme: dark;
@@ -92,7 +96,7 @@ code{font-family:var(--mono);font-size:12.5px;background:var(--panel-2);padding:
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <a class="brand" href="{{ url_for('dashboard') }}"><span class="dot"></span>Fast Dissem</a>
+  <a class="brand" href="{{ url_for('dashboard') }}"><img src="{{ url_for('static', filename='favicon.svg') }}" alt="" width="24" height="24">Fast Dissem</a>
   <nav>
     <a href="{{ url_for('dashboard') }}" class="{{ 'on' if request.endpoint=='dashboard' }}">Dashboard</a>
     <a href="{{ url_for('preview') }}" class="{{ 'on' if request.endpoint=='preview' }}">Preview</a>
