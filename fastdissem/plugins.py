@@ -66,6 +66,9 @@ class Context:
     http_get: Callable[..., Any] | None = None
     storage: Any = None
     general: dict = field(default_factory=dict)
+    # save_setting(kind, name, key, value): persist a value a plug-in changed
+    # itself, e.g. a renewed access token. kind is "sources" or "publishers".
+    save_setting: Callable[[str, str, str, Any], None] | None = None
 
 
 class Source(Plugin):
@@ -95,6 +98,23 @@ class Publisher(Plugin):
 
     char_limit = 500
     include_url_in_text = True   # False when the platform shows a link card
+    experimental = False         # shown with a "beta" label in the web UI
+    maintain_interval = 3600     # seconds between maintain() calls
+
+    def accepts(self, item: Item) -> str | None:
+        """Return a reason to skip this item on this network (e.g. Instagram
+        needs an image), or None to post it. Skipped items are not retried."""
+        return None
+
+    def maintain(self) -> None:
+        """Periodic upkeep while the service runs, e.g. renewing tokens that
+        expire. Called about every ``maintain_interval`` seconds."""
+
+    def remember(self, key: str, value) -> None:
+        """Change one of this network's settings and save it to config.json."""
+        self.settings[key] = value
+        if self.ctx.save_setting:
+            self.ctx.save_setting("publishers", self.name, key, value)
 
     def measure(self, text: str) -> int:
         return grapheme_len(text)

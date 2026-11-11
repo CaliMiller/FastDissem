@@ -15,6 +15,7 @@ class MastodonPublisher(Publisher):
     name = "mastodon"
     label = "Mastodon / Fediverse"
     description = "Any server that speaks the Mastodon API."
+    experimental = True
     include_url_in_text = True
     fields = [
         Field("instance_url", "Server URL", default="", help="e.g. https://mastodon.social"),

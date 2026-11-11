@@ -65,6 +65,8 @@ def main(argv=None) -> int:
                     print(r.text)
                     if r.card:
                         print(f"  [card] {r.card.title} – {r.card.url}")
+                for label, reason in row.get("skipped", {}).items():
+                    print(f"[{label}] skipped: {reason}")
         return 0
 
     stop = threading.Event()

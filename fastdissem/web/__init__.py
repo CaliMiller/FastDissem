@@ -168,7 +168,8 @@ def create_app(config, storage, engine: Engine) -> Flask:
             st = engine.status.get(name, {})
             n = len([r for r in s.get("channels", s.get("areas", [])) if r.get("enabled", True)])
             srcs.append({"name": name, "label": cls.label, "enabled": s.get("enabled"), "st": st, "targets": n})
-        pubs = [{"name": n, "label": c.label, "enabled": cfg["publishers"].get(n, {}).get("enabled")}
+        pubs = [{"name": n, "label": c.label, "experimental": c.experimental,
+                 "enabled": cfg["publishers"].get(n, {}).get("enabled")}
                 for n, c in PUBLISHERS.items()]
         return render_template("dashboard.html", sources=srcs, pubs=pubs,
                                recent=storage.recent(60), events=storage.events(15),
@@ -193,7 +194,8 @@ def create_app(config, storage, engine: Engine) -> Flask:
     # ------------------------------------------------------------ settings
     def plugin_sections(kind: str):
         reg = SOURCES if kind == "sources" else PUBLISHERS
-        return [(n, c) for n, c in reg.items()]
+        # tested networks first, experimental ones after
+        return sorted(reg.items(), key=lambda nc: (getattr(nc[1], "experimental", False), nc[1].label.lower()))
 
     @app.get("/settings")
     @login_required

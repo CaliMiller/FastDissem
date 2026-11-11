@@ -104,13 +104,37 @@ Docker: `docker build -t fastdissem . && docker run -v $PWD/data:/data -p 8787:8
 
 Check intervals default to 5 min (YouTube) and 2 min (NWS); the minimum is 30 s. YouTube's RSS feed itself can lag new uploads by several minutes.
 
-## Adding another network (Facebook, X, Instagram, Threads…)
+## Experimental networks (beta branch)
+
+The `beta` branch adds **X (Twitter), Facebook Pages, Threads and Instagram**. They were written from each service's API documentation and pass offline tests, but **none has been tried with a real account yet**, so they're labelled *beta · untested* in Settings. Mastodon (also on `main`, and equally untested) gets the same label here.
+
+| Network | What gets posted | Things to know |
+|---|---|---|
+| X (Twitter) | Text, optional link (X shows its own preview) | X bills every post through prepaid credits; posts with a link have cost far more than plain ones, so the link can be switched off. 280-character limit counted the way X does (emoji = 2, links = 23). Uses never-expiring OAuth 1.0a keys. |
+| Facebook Page | Text + link preview | Must be a Page, not a personal profile. Needs a Page access token with `pages_manage_posts`. |
+| Threads | Text + link preview | Only **one tag** per post: the first hashtag becomes the topic tag. Token renews itself every ~20 days. |
+| Instagram | Video thumbnail + caption | Needs a Professional account. **Weather alerts are skipped** (Instagram requires a picture). Caption links aren't clickable. Token renews itself. |
+
+**Try it on a separate test container first.** New install:
+```bash
+BRANCH=beta bash -c "$(wget -qO- https://raw.githubusercontent.com/CaliMiller/FastDissem/beta/deploy/proxmox-lxc.sh)"
+```
+Switch an existing container to beta, and back:
+```bash
+pct exec <CTID> -- env BRANCH=beta bash /opt/fast_dissem/deploy/install.sh
+pct exec <CTID> -- env BRANCH=main bash /opt/fast_dissem/deploy/install.sh
+```
+Updates keep a container on whichever branch it's on. Settings work on both branches.
+
+If you try one of these networks, Settings → **Test connection** checks the sign-in, and **Preview** shows exactly what would be posted. Problems show up on the Dashboard with the network's own error message.
+
+## Adding another network
 
 1. Copy `fastdissem/publishers/_template.py` to e.g. `facebook.py`.
 2. Set `name`, `label`, `char_limit`, `fields` (these become the settings form) and implement `publish()` (raise on failure) and optionally `check()`.
 3. Uncomment `@register_publisher` and restart. It appears in Settings and the Preview.
 
-Text fitting, hashtags, duplicate tracking per network, retries and dry run come for free. `mastodon.py` (~60 lines) is a complete real example. The template has notes on the Facebook, X, Instagram and Threads APIs. New **sources** work the same way in `fastdissem/sources/` (subclass `Source`, implement `poll()` returning `Item`s).
+Text fitting, hashtags, duplicate tracking per network, retries and dry run come for free. `mastodon.py` (~60 lines) is the simplest complete example; the template points to the others. New **sources** work the same way in `fastdissem/sources/` (subclass `Source`, implement `poll()` returning `Item`s).
 
 ## Layout
 ```
@@ -119,9 +143,11 @@ fastdissem/
   storage.py       SQLite (items, deliveries, activity)
   text.py          grapheme counting, hashtags, abbreviations, fitting to limits
   config.py        config.json + env overrides
+  oauth1.py        request signing for X
   plugins.py       Source / Publisher base classes and registry
   sources/         youtube.py, nws.py
   publishers/      bluesky.py, mastodon.py, console.py, _template.py
+                   beta: twitter.py, facebook.py, threads.py, instagram.py, _meta.py
   web/             Flask app + templates (dark theme)
 deploy/
   proxmox-lxc.sh   run on a Proxmox host: creates an LXC and installs

@@ -7,7 +7,7 @@
 <div class="sectionnav">
   <a href="#general">General</a>
   {% for n, c in sources %}<a href="#src-{{ n }}">{{ c.label }}</a>{% endfor %}
-  {% for n, c in publishers %}<a href="#pub-{{ n }}">{{ c.label }}</a>{% endfor %}
+  {% for n, c in publishers %}<a href="#pub-{{ n }}">{{ c.label }}{{ ' ·β' if c.experimental }}</a>{% endfor %}
   <a href="#web">Web UI</a>
 </div>
 
@@ -41,6 +41,7 @@
 <section class="card" id="pub-{{ n }}">
   <div class="card-head">
     <h2>{{ c.label }}</h2>
+    {% if c.experimental %}<span class="pill warn" title="Written from the network's documentation but not yet tested with a real account">beta · untested</span>{% endif %}
     <label class="toggle"><input type="checkbox" name="publishers.{{ n }}.enabled" value="1" {{ 'checked' if p.enabled }}> Enabled</label>
     <div class="spacer"></div>
     <button type="submit" formaction="{{ url_for('test_publisher', name=n) }}" class="ghost"

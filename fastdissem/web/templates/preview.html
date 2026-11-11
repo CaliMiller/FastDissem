@@ -20,10 +20,15 @@
             <span class="{{ 'muted' if r.length <= r.limit else '' }}">· {{ r.length }}/{{ r.limit }}</span>
             {% if r.trimmed %}<span class="pill warn" title="Some tags or text were shortened to fit">trimmed</span>{% endif %}</div>
           <div class="post">{{ r.text|e|regex_tags }}</div>
+          {% if r.note %}<div class="small muted" style="margin-top:5px">{{ r.note }}</div>{% endif %}
           {% if r.card %}<div class="cardprev">{% if r.card.thumb_url %}<img src="{{ r.card.thumb_url }}" alt="">{% endif %}
             <div><b>{{ r.card.title }}</b><span class="muted">{{ r.card.description[:120] }}</span>
             <div class="faint">{{ r.card.url.split('/')[2] }}</div></div></div>{% endif %}
         </div>
+      {% endfor %}
+      {% for label, reason in row.skipped.items() %}
+        <div><div class="small" style="margin-bottom:5px"><b>{{ label }}</b> <span class="pill">skipped</span></div>
+          <div class="post muted">{{ reason }}</div></div>
       {% endfor %}
       </div>
     </div>

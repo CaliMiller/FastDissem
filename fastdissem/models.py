@@ -78,6 +78,7 @@ class Rendered:
     limit: int
     trimmed: bool = False
     card: LinkCard | None = None
+    note: str = ""          # extra info shown in Preview only (e.g. Threads topic tag)
 
 
 @dataclass

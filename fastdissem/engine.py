@@ -15,21 +15,28 @@ from .storage import Storage
 log = logging.getLogger(__name__)
 
 
-def _ctx(cfg: dict, storage: Storage | None) -> Context:
+def _ctx(cfg: dict, storage: Storage | None, config: ConfigStore | None = None) -> Context:
+    def save_setting(kind, name, key, value):
+        if config is None:
+            return
+        raw = config.raw()
+        raw.setdefault(kind, {}).setdefault(name, {})[key] = value
+        config.save(raw, rebuild=False)
+
     return Context(timezone=cfg["general"].get("timezone") or "UTC", storage=storage,
-                   general=cfg["general"])
+                   general=cfg["general"], save_setting=save_setting)
 
 
-def build_sources(cfg: dict, storage=None, only_enabled=True) -> dict[str, Source]:
+def build_sources(cfg: dict, storage=None, only_enabled=True, config=None) -> dict[str, Source]:
     load_plugins()
-    ctx = _ctx(cfg, storage)
+    ctx = _ctx(cfg, storage, config)
     return {n: SOURCES[n](s, ctx) for n, s in cfg["sources"].items()
             if n in SOURCES and (s.get("enabled") or not only_enabled)}
 
 
-def build_publishers(cfg: dict, storage=None, only_enabled=True) -> dict[str, Publisher]:
+def build_publishers(cfg: dict, storage=None, only_enabled=True, config=None) -> dict[str, Publisher]:
     load_plugins()
-    ctx = _ctx(cfg, storage)
+    ctx = _ctx(cfg, storage, config)
     return {n: PUBLISHERS[n](s, ctx) for n, s in cfg["publishers"].items()
             if n in PUBLISHERS and (s.get("enabled") or not only_enabled)}
 
@@ -48,14 +55,15 @@ class Engine:
         self._force: set[str] = set()
         self._run_lock = threading.Lock()
         self.started_at = datetime.now(timezone.utc)
+        self._maintained: dict[str, float] = {}
 
     # ------------------------------------------------------------- set-up
     def _rebuild_if_needed(self) -> None:
         if self._built_version == self.config.version and self.cfg:
             return
         self.cfg = self.config.get()
-        self.sources = build_sources(self.cfg, self.storage)
-        self.publishers = build_publishers(self.cfg, self.storage)
+        self.sources = build_sources(self.cfg, self.storage, config=self.config)
+        self.publishers = build_publishers(self.cfg, self.storage, config=self.config)
         self._built_version = self.config.version
         log.info("Active sources: %s | networks: %s | dry run: %s",
                  ", ".join(self.sources) or "none", ", ".join(self.publishers) or "none", self.dry_run)
@@ -96,12 +104,26 @@ class Engine:
                     st["next_run"] = st["last_run"] + interval
             self._force.discard("*")
             self.deliver_due()
+            self.maintain()
 
     def run_once(self) -> None:
         self._rebuild_if_needed()
         for name, src in self.sources.items():
             self.run_source(name, src)
         self.deliver_due()
+        self.maintain()
+
+    def maintain(self) -> None:
+        now = time.time()
+        for name, pub in self.publishers.items():
+            if now - self._maintained.get(name, 0) < pub.maintain_interval:
+                continue
+            self._maintained[name] = now
+            try:
+                pub.maintain()
+            except Exception as e:
+                log.warning("%s upkeep failed: %s", name, e)
+                self.storage.event("error", f"{pub.label}: {e}")
 
     # ------------------------------------------------------------ sources
     def run_source(self, name: str, src: Source) -> int:
@@ -166,6 +188,10 @@ class Engine:
                         continue
                 except ValueError:
                     pass
+            reason = pub.accepts(item)
+            if reason:
+                self.storage.record(uid, pname, "skipped", error=reason)
+                continue
             try:
                 rendered = pub.render(item)
             except Exception as e:
@@ -209,9 +235,14 @@ class Engine:
                 continue
             rows = []
             for item in items[-10:]:
-                rows.append({
-                    "item": item, "seen": self.storage.seen(item.uid),
-                    "renders": {p.label: p.render(item) for p in pubs.values()},
-                })
+                renders, skipped = {}, {}
+                for p in pubs.values():
+                    reason = p.accepts(item)
+                    if reason:
+                        skipped[p.label] = reason
+                    else:
+                        renders[p.label] = p.render(item)
+                rows.append({"item": item, "seen": self.storage.seen(item.uid),
+                             "renders": renders, "skipped": skipped})
             out.append({"source": src.label, "error": "", "items": rows})
         return out

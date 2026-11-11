@@ -23,7 +23,7 @@
 {% endfor %}
   <div class="card">
     <div class="card-head" style="margin-bottom:8px"><h2>Networks</h2></div>
-    {% for p in pubs if p.enabled %}<span class="pill ok" style="margin:0 4px 4px 0">{{ p.label }}</span>
+    {% for p in pubs if p.enabled %}<span class="pill {{ 'warn' if p.experimental else 'ok' }}" style="margin:0 4px 4px 0">{{ p.label }}{{ ' (beta)' if p.experimental }}</span>
     {% else %}<span class="small muted">None enabled – <a href="{{ url_for('settings') }}">set one up</a>.</span>{% endfor %}
     <div class="small muted" style="margin-top:6px">{{ counts.get('sent', 0) }} sent · {{ counts.get('seen_items', 0) }} items seen</div>
   </div>
@@ -41,7 +41,7 @@
         <div class="faint small">{{ r.source }}</div>
         {% if r.last_error and r.status != 'sent' %}<div class="small" style="color:var(--err)">{{ r.last_error }}</div>{% endif %}</td>
       <td>{{ r.publisher }}</td>
-      <td>{% set cls = {'sent':'ok','dry_run':'warn','pending':'info','failed':'err','gave_up':'err','expired':''}[r.status] %}
+      <td>{% set cls = {'sent':'ok','dry_run':'warn','pending':'info','failed':'err','gave_up':'err','expired':'','skipped':''}.get(r.status, '') %}
         {% if r.post_url %}<a href="{{ r.post_url }}" target="_blank" rel="noopener"><span class="pill {{ cls }}">{{ r.status|replace('_',' ') }} ↗</span></a>
         {% else %}<span class="pill {{ cls }}" title="{{ r.text or '' }}">{{ r.status|replace('_',' ') }}</span>{% endif %}</td>
       <td><form class="inline" method="post" action="{{ url_for('forget') }}"

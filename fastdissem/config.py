@@ -119,11 +119,14 @@ class ConfigStore:
         with self._lock:
             return copy.deepcopy(self._data)
 
-    def save(self, cfg: dict) -> None:
+    def save(self, cfg: dict, rebuild: bool = True) -> None:
+        """Save settings. rebuild=False is for values a plug-in updates on its
+        own (renewed tokens): the running plug-ins already hold the new value."""
         with self._lock:
             self._data = _merge(full_defaults(), cfg)
             self._write(self._data)
-            self.version += 1
+            if rebuild:
+                self.version += 1
 
     def reload(self) -> None:
         with self._lock:

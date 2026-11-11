@@ -7,7 +7,8 @@
 #
 # Options (environment variables):
 #   REPO=https://github.com/CaliMiller/FastDissem.git   repository to clone (default)
-#   BRANCH=main                                branch to use
+#   BRANCH=main                                branch to use (main = tested, beta = experimental).
+#                                              Default: the branch already installed, else main.
 #   APP_DIR=/opt/fast_dissem                   install location
 #   PORT=8787                                  web UI port
 #
@@ -20,8 +21,12 @@ set -euo pipefail
 # very file while it is running (that's how updates work).
 main() {
 REPO="${REPO:-https://github.com/CaliMiller/FastDissem.git}"
-BRANCH="${BRANCH:-main}"
+BRANCH="${BRANCH:-}"
 APP_DIR="${APP_DIR:-/opt/fast_dissem}"
+if [ -z "$BRANCH" ]; then
+  BRANCH="$(git -C "$APP_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+  case "$BRANCH" in ""|HEAD) BRANCH=main ;; esac
+fi
 PORT="${PORT:-8787}"
 SVC_USER="fastdissem"
 export DEBIAN_FRONTEND=noninteractive
@@ -115,7 +120,7 @@ cat > /usr/local/bin/fastdissem-update <<EOF
 #!/usr/bin/env bash
 # Pull the latest Fast Dissem from GitHub and restart. Settings are kept.
 set -e
-APP_DIR="$APP_DIR" BRANCH="\${BRANCH:-$BRANCH}" bash "$APP_DIR/deploy/install.sh"
+APP_DIR="$APP_DIR" bash "$APP_DIR/deploy/install.sh"   # stays on the installed branch; BRANCH=main or beta to switch
 EOF
 chmod 755 /usr/local/bin/fastdissem-update
 
@@ -129,7 +134,7 @@ IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 WEB_PORT="$(runuser -u "$SVC_USER" -- env PYTHONPATH="$APP_DIR" "$APP_DIR/.venv/bin/python" -c \
   "import json;print(json.load(open('$APP_DIR/data/config.json'))['web']['port'])" 2>/dev/null || echo "$PORT")"
 echo
-msg "Fast Dissem is running."
+msg "Fast Dissem is running (branch: $BRANCH)."
 echo "    Web UI:    http://${IP:-<this-machine>}:${WEB_PORT}"
 if [ -f "$PASS_FILE" ]; then
   echo "    Password:  $(cat "$PASS_FILE")   (also saved in $PASS_FILE; change it in Settings → Web UI)"

@@ -213,6 +213,13 @@ class FakeSource:
 
 class FakePub:
     label = "Fake net"
+    maintain_interval = 3600
+
+    def accepts(self, item):
+        return None
+
+    def maintain(self):
+        pass
 
     def __init__(self):
         self.sent = []

@@ -10,15 +10,10 @@ dry-run mode, fitting text to ``char_limit``, hashtags) is handled for you.
 ``rendered.text`` is already trimmed to your limit; ``rendered.card`` holds
 the link preview (url, title, description, thumb_url) if the item has one.
 
-Notes for likely next networks:
-  * Facebook Page: POST https://graph.facebook.com/v{N}/{page-id}/feed with
-    message=<text>&link=<url>&access_token=<page token>.
-  * X/Twitter: POST https://api.x.com/2/tweets {"text": ...} with OAuth 1.0a
-    user context; set char_limit = 280 and measure URLs as 23 characters.
-  * Instagram: needs an image or video (no link posts). Use
-    rendered.card.thumb_url as the image via the Graph API's media + publish
-    two-step, and put the URL in the caption (it won't be clickable).
-  * Threads: Threads API, two-step container create + publish, 500 chars.
+Working examples to copy from: mastodon.py (simplest), facebook.py (form
+post + link), twitter.py (signed requests, custom length counting),
+threads.py / instagram.py (two-step publish, auto-renewed tokens, and
+accepts() to skip items a network can't post).
 """
 
 from __future__ import annotations
