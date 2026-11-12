@@ -24,6 +24,7 @@ A headless Python service that watches **YouTube channels** and **National Weath
   Markers: 🔴 warning · 🟠 watch · 🟡 advisory · 🔵 statement · 🚨 emergency. Future alerts show a range: `⏰ From 7 PM EST Tue 11/10 until 7 AM EST Wed 11/11`. Winter/flood/etc. alerts use the NWS "WHAT…" summary.
 - **Abbreviations** (`Severe Thunderstorm` → `Svr T-Storm`, `County` → `Co.`, `accumulations` → `accum.` …) are applied **only when a post would otherwise be too long** (or always/never — your choice). The list is editable in Settings.
 - If it still doesn't fit, it trims in this order: video/extra tags → detail line → (shortens) area/time lines → long title → default hashtags.
+- **Your areas come first** in the area list (a long watch reads `📍 Shelby, Boone, Hamilton… +9 more`), or list only yours. Each county/zone code's name and matching forecast zone are looked up from the NWS automatically, which also fills in the forecast zone for the alert link.
 - Filters: minimum severity, only/never these alert types, post updates or cancellations (off by default to avoid spam). Test messages and expired alerts are never posted.
 
 **No duplicates**
@@ -46,7 +47,7 @@ Open **http://127.0.0.1:8787**, then in **Settings**:
 2. **YouTube** – add channel rows, default hashtags, optional API key. Tick *Enabled*.
 3. **NWS Alerts** – add county/zone codes and a contact (website or email; NWS asks apps to identify themselves). Find codes at https://alerts.weather.gov or `https://api.weather.gov/zones?area=IN&type=county`.
 4. Look at **Preview** to see exactly what would be posted for each network, with character counts.
-5. Turn **Dry run** off in General when you're happy. (Things handled during dry run are recorded and won't be posted later.)
+5. Turn **Dry run** off in General when you're happy. Posts composed during dry run aren't sent automatically afterwards; the Dashboard offers **Post them now** for alerts still in effect, and **post now** on any single row.
 
 ## Install on Proxmox (LXC) – recommended
 

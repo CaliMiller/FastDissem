@@ -29,6 +29,14 @@
   </div>
 </div>
 
+{% if active_dry and not dry_run %}
+<div class="banner" style="margin-top:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  <span style="flex:1;min-width:220px">{{ active_dry }} alert post(s) were composed during dry run and the alerts are still in effect.
+    They aren't posted automatically.</span>
+  <form method="post" action="{{ url_for('post_active') }}"><input type="hidden" name="_csrf" value="{{ csrf }}">
+    <button class="primary">Post them now</button></form>
+</div>{% endif %}
+
 <section class="card" style="margin-top:22px">
   <div class="card-head"><h2>Recent posts</h2></div>
   {% if recent %}
@@ -44,7 +52,14 @@
       <td>{% set cls = {'sent':'ok','dry_run':'warn','pending':'info','failed':'err','gave_up':'err','expired':''}[r.status] %}
         {% if r.post_url %}<a href="{{ r.post_url }}" target="_blank" rel="noopener"><span class="pill {{ cls }}">{{ r.status|replace('_',' ') }} ↗</span></a>
         {% else %}<span class="pill {{ cls }}" title="{{ r.text or '' }}">{{ r.status|replace('_',' ') }}</span>{% endif %}</td>
-      <td><form class="inline" method="post" action="{{ url_for('forget') }}"
+      <td style="white-space:nowrap">
+        {% if r.status in ('dry_run', 'failed', 'gave_up') %}
+        <form class="inline" method="post" action="{{ url_for('post_now') }}">
+          <input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="uid" value="{{ r.uid }}">
+          <input type="hidden" name="publisher" value="{{ r.publisher }}">
+          <button class="link post-now" title="{{ 'Turn off dry run first' if dry_run else 'Send this post now' }}" {{ 'disabled' if dry_run }}>post now</button></form>
+        <span class="faint"> · </span>{% endif %}
+        <form class="inline" method="post" action="{{ url_for('forget') }}"
             onsubmit="return confirm('Forget this item so it can be posted again?')">
         <input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="uid" value="{{ r.uid }}">
         <button class="link" title="Allow this item to be posted again">forget</button></form></td>

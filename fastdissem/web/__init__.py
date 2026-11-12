@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 GENERAL_FIELDS = [
     Field("dry_run", "Dry run (compose posts but don't send them)", "bool", default=True,
-          help="Turn off when your previews look right. Items handled during a dry run are not sent later."),
+          help="Turn off when your previews look right. Posts composed during dry run are not sent automatically; use "post now" on the Dashboard."),
     Field("timezone", "Time zone for alert times", default="America/Indiana/Indianapolis"),
     Field("max_attempts", "Retries before giving up on a post", "int", default=5),
     Field("log_level", "Log level", "select", default="INFO", options=["DEBUG", "INFO", "WARNING"]),
@@ -171,6 +171,7 @@ def create_app(config, storage, engine: Engine) -> Flask:
         pubs = [{"name": n, "label": c.label, "enabled": cfg["publishers"].get(n, {}).get("enabled")}
                 for n, c in PUBLISHERS.items()]
         return render_template("dashboard.html", sources=srcs, pubs=pubs,
+                               active_dry=len(storage.active_dry_runs()),
                                recent=storage.recent(60), events=storage.events(15),
                                counts=storage.counts())
 
@@ -179,6 +180,32 @@ def create_app(config, storage, engine: Engine) -> Flask:
     def check_now():
         engine.trigger(request.form.get("source") or None)
         flash("Checking now – refresh in a few seconds.", "ok")
+        return redirect(url_for("dashboard"))
+
+    @app.post("/post-now")
+    @login_required
+    def post_now():
+        if engine.dry_run:
+            flash("Dry run is still on. Turn it off in Settings → General first.", "warn")
+            return redirect(url_for("dashboard"))
+        if storage.requeue(request.form.get("uid", ""), request.form.get("publisher", "")):
+            engine.trigger()
+            flash("Posting now – refresh in a few seconds.", "ok")
+        else:
+            flash("That one was already posted.", "warn")
+        return redirect(url_for("dashboard"))
+
+    @app.post("/post-active")
+    @login_required
+    def post_active():
+        if engine.dry_run:
+            flash("Dry run is still on. Turn it off in Settings → General first.", "warn")
+            return redirect(url_for("dashboard"))
+        rows = storage.active_dry_runs()
+        for r in rows:
+            storage.requeue(r["uid"], r["publisher"])
+        engine.trigger()
+        flash(f"Posting {len(rows)} active alert(s) from dry run – refresh in a few seconds.", "ok")
         return redirect(url_for("dashboard"))
 
     @app.post("/forget")
