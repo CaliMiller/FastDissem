@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -20,7 +21,8 @@ from .. import APP_NAME, __version__
 
 log = logging.getLogger(__name__)
 
-API = "https://api.weather.gov/alerts/active"
+BASE = "https://api.weather.gov"
+API = f"{BASE}/alerts/active"
 CODE_RE = re.compile(r"^[A-Z]{2}[CZ]\d{3}$")
 
 DEFAULT_ABBREVIATIONS = """\
@@ -142,9 +144,9 @@ def details(props: dict) -> str:
     return _clean(first.lstrip("."))
 
 
-def format_areas(area_desc: str, counties: bool, max_areas: int, short: bool) -> str:
-    """"Boone, IN; Marion, IN; Vermilion, IL" -> "Boone, Marion Cos., IN; Vermilion Co., IL"."""
-    groups: dict[str, list[str]] = {}
+def split_areas(area_desc: str) -> list[tuple[str, str]]:
+    """"Boone, IN; Northern Marion" -> [("Boone", "IN"), ("Northern Marion", "")]."""
+    out = []
     for part in (area_desc or "").split(";"):
         part = part.strip()
         if not part:
@@ -152,26 +154,67 @@ def format_areas(area_desc: str, counties: bool, max_areas: int, short: bool) ->
         name, _, state = part.rpartition(",")
         if not name:
             name, state = part, ""
-        groups.setdefault(state.strip(), []).append(name.strip())
-    total = sum(len(v) for v in groups.values())
-    shown = 0
+        out.append((name.strip(), state.strip()))
+    return out
+
+
+def format_areas(area_desc: str, counties: bool, max_areas: int, short: bool,
+                 priority: set[int] | frozenset = frozenset(), only_mine: bool = False) -> str:
+    """"Boone, IN; Marion, IN; Vermilion, IL" -> "Boone, Marion Cos., IN; Vermilion Co., IL".
+
+    ``priority`` = positions (in area_desc) of your own areas: they are listed
+    first and always shown. ``only_mine`` lists just those, then "+N more".
+    """
+    parts = split_areas(area_desc)
+    mine = [p for i, p in enumerate(parts) if i in priority]
+    others = [p for i, p in enumerate(parts) if i not in priority]
+    if only_mine and mine:
+        chosen = mine
+    else:
+        room = max(0, max_areas - len(mine)) if max_areas else len(others)
+        chosen = mine + others[:room]
+    hidden = len(parts) - len(chosen)
+    groups: dict[str, list[str]] = {}
+    for name, state in chosen:
+        groups.setdefault(state, []).append(name)
     chunks = []
     for state, names in groups.items():
-        take = names[: max(0, max_areas - shown)] if max_areas else names
-        shown += len(take)
-        if not take:
-            continue
-        txt = ", ".join(take)
+        txt = ", ".join(names)
         if counties:
-            txt += (" Cos." if len(take) > 1 else " Co.") if short else \
-                   (" counties" if len(take) > 1 else " County")
+            txt += (" Cos." if len(names) > 1 else " Co.") if short else \
+                   (" counties" if len(names) > 1 else " County")
         if state:
             txt += f", {state}"
         chunks.append(txt)
     out = "; ".join(chunks)
-    if total > shown:
-        out += f" +{total - shown} more"
+    if hidden > 0:
+        out += f" +{hidden} more"
     return out
+
+
+def _centroid(geometry: dict | None) -> tuple[float, float] | None:
+    """A point inside a zone's (Multi)Polygon, as (lat, lon)."""
+    if not geometry:
+        return None
+    polys = geometry.get("coordinates") or []
+    if geometry.get("type") == "Polygon":
+        polys = [polys]
+    rings = [p[0] for p in polys if p and p[0]]
+    if not rings:
+        return None
+    ring = max(rings, key=len)
+    a = cx = cy = 0.0
+    for (x0, y0), (x1, y1) in zip(ring, ring[1:] + ring[:1]):
+        cross = x0 * y1 - x1 * y0
+        a += cross
+        cx += (x0 + x1) * cross
+        cy += (y0 + y1) * cross
+    if abs(a) < 1e-12:
+        x = sum(p[0] for p in ring) / len(ring)
+        y = sum(p[1] for p in ring) / len(ring)
+    else:
+        x, y = cx / (3 * a), cy / (3 * a)
+    return round(y, 4), round(x, 4)
 
 
 def fmt_time(iso_s: str, tz: ZoneInfo, now: datetime) -> str:
@@ -208,8 +251,9 @@ class NWSSource(Source):
             Field("code", "Code (e.g. INC097 or INZ040)"),
             Field("label", "Label (for you)"),
             Field("enabled", "On", "bool", default=True),
-        ], help="County codes look like INC097, forecast zones like INZ040. "
-                "Find them at alerts.weather.gov or api.weather.gov/zones?area=IN."),
+        ], help="County codes look like INC145, forecast zones like INZ055. "
+                "Find them at api.weather.gov/zones?area=IN&type=county. Each code's name and "
+                "matching county/zone are looked up from the NWS automatically."),
         Field("contact", "Contact for NWS (website or email)", "text", default="",
               help="api.weather.gov asks every app to identify itself with a contact in its User-Agent."),
         Field("default_hashtags", "Default hashtags", "tags", default=[]),
@@ -226,11 +270,16 @@ class NWSSource(Source):
         Field("abbreviations", "Abbreviations", "textarea", default=DEFAULT_ABBREVIATIONS,
               help="One per line: Long = Short."),
         Field("max_areas", "Max areas to list", "int", default=6,
-              help="Longer lists end with \"+N more\"."),
+              help="Longer lists end with \"+N more\". Your own areas are always shown."),
+        Field("area_focus", "Your areas in the list", "select", default="mine_first",
+              options=["mine_first", "only_mine", "nws_order"],
+              help="mine first = your counties/zones lead the list; only mine = list just yours, "
+                   "then \"+N more\"; nws order = as the NWS lists them."),
         Field("link_card", "Attach link card", "bool", default=True),
         Field("link_template", "Link URL", "text",
               default="https://forecast.weather.gov/showsigwx.php?warnzone={zone}&warncounty={county}",
-              help="Placeholders: {zone} {county} (your first matching watched codes), {id}, {state}."),
+              help="Placeholders: {zone} {county} (your area's codes; a county's forecast zone is "
+                   "looked up automatically), {lat} {lon}, {id}, {state}."),
     ]
 
     def __init__(self, settings, context):
@@ -238,6 +287,10 @@ class NWSSource(Source):
         contact = (settings.get("contact") or "").strip() or "contact not set"
         self.http = make_session(f"{APP_NAME}/{__version__} ({contact})")
         self.http.headers["Accept"] = "application/geo+json"
+        # one quick try for name/zone lookups, so saving Settings never hangs
+        import requests
+        self.lookup_http = requests.Session()
+        self.lookup_http.headers.update(self.http.headers)
 
     def codes(self) -> list[str]:
         out = []
@@ -284,18 +337,121 @@ class NWSSource(Source):
             return False
         return True
 
+    # ------------------------------------------------- area lookups (cached)
+    def area_info(self, code: str) -> dict:
+        """Name, state, and the linked forecast zone / county for a watched
+        code, from api.weather.gov. Cached in settings["zone_info"]."""
+        cache = self.settings.setdefault("zone_info", {})
+        info = cache.get(code)
+        if info and not info.get("error"):
+            return info
+        if info and time.time() - info.get("at", 0) < 3600:
+            return info                       # failed recently: don't hammer the API
+        try:
+            info = self._lookup(code)
+        except Exception as e:
+            log.warning("NWS lookup for %s failed: %s", code, e)
+            info = {"error": str(e)[:200], "at": time.time()}
+        cache[code] = info
+        return info
+
+    def _lookup(self, code: str) -> dict:
+        kind = "county" if code[2] == "C" else "forecast"
+        r = self.lookup_http.get(f"{BASE}/zones/{kind}/{code}", timeout=8)
+        r.raise_for_status()
+        feat = r.json()
+        props = feat.get("properties") or {}
+        info = {"name": props.get("name", ""), "state": props.get("state", ""),
+                "zone": code if kind == "forecast" else "", "county": code if kind == "county" else ""}
+        pt = _centroid(feat.get("geometry"))
+        if pt:
+            info["lat"], info["lon"] = pt
+            p = self.lookup_http.get(f"{BASE}/points/{pt[0]},{pt[1]}", timeout=8)
+            if p.ok:
+                pp = p.json().get("properties") or {}
+                for key, url_key in (("zone", "forecastZone"), ("county", "county")):
+                    if not info[key] and pp.get(url_key):
+                        info[key] = pp[url_key].rstrip("/").rsplit("/", 1)[-1]
+        return info
+
+    def prepare(self, section: dict) -> bool:
+        """On settings save: look up any new codes so the first alert is right."""
+        self.settings = section
+        before = dict(section.get("zone_info") or {})
+        for code in self.codes():
+            self.area_info(code)
+        return section.get("zone_info") != before
+
+    def my_codes(self) -> set[str]:
+        """Watched codes plus their linked county/zone codes."""
+        out = set()
+        for code in self.codes():
+            out.add(code)
+            info = self.area_info(code)
+            out.update(c for c in (info.get("zone"), info.get("county")) if c)
+        return out
+
+    def my_positions(self, props: dict) -> set[int]:
+        """Which entries of areaDesc are your areas."""
+        parts = split_areas(props.get("areaDesc", ""))
+        ugc = (props.get("geocode") or {}).get("UGC") or []
+        mine = self.my_codes()
+        found = set()
+        if len(parts) == len(ugc):            # NWS lists areaDesc in UGC order
+            found |= {i for i, c in enumerate(ugc) if c in mine}
+        names = set()
+        for row in self.settings.get("areas", []):
+            code = (row.get("code") or "").strip().upper()
+            if not (row.get("enabled", True) and CODE_RE.match(code)):
+                continue
+            info = self.area_info(code)
+            if info.get("name"):
+                names.add((info["name"].lower(), info.get("state", "")))
+            label = re.sub(r"\b(county|co\.?|parish)\b", "", (row.get("label") or ""), flags=re.I).strip(" ,")
+            if label:
+                names.add((label.lower(), code[:2]))
+        same_order = len(parts) == len(ugc)
+        for i, (name, state) in enumerate(parts):
+            if not state and same_order:
+                state = ugc[i][:2]            # zone lists omit the state; the code has it
+            if any(name.lower() == n and (not state or not st or state == st) for n, st in names):
+                found.add(i)
+        return found
+
     def link(self, props: dict) -> str:
         watched = self.codes()
         ugc = (props.get("geocode") or {}).get("UGC") or []
-        hits = [c for c in watched if c in ugc] or watched
-        zone = next((c for c in hits if c[2] == "Z"), next((c for c in watched if c[2] == "Z"), ""))
-        county = next((c for c in hits if c[2] == "C"), next((c for c in watched if c[2] == "C"), ""))
-        state = (hits[0][:2] if hits else "")
+        hits = [c for c in watched if c in ugc]
+        infos = [self.area_info(c) for c in (hits or watched)]
+        ugc_z = [c for c in ugc if len(c) > 2 and c[2] == "Z"]
+        ugc_c = [c for c in ugc if len(c) > 2 and c[2] == "C"]
+        mine = self.my_codes()
+
+        def pick(kind: str, from_ugc: list[str]) -> str:
+            for c in from_ugc:                         # your area, as the alert names it
+                if c in mine:
+                    return c
+            for info in infos:                         # your area's linked code
+                if info.get(kind):
+                    return info[kind]
+            return from_ugc[0] if from_ugc else ""     # any area in the alert
+
+        zone, county = pick("zone", ugc_z), pick("county", ugc_c)
+        lat = next((i["lat"] for i in infos if i.get("lat")), "")
+        lon = next((i["lon"] for i in infos if i.get("lon")), "")
+        state = (hits or watched or [""])[0][:2]
+        template = self.settings.get("link_template") or ""
+        values = {"zone": zone, "county": county, "id": props.get("id", ""), "state": state,
+                  "lat": lat, "lon": lon}
+        needed = [k for k in values if "{" + k + "}" in template]
+        if any(not values[k] for k in needed if k in ("zone", "lat", "lon")):
+            if lat and lon:
+                return f"https://forecast.weather.gov/MapClick.php?lat={lat}&lon={lon}"
+            return "https://alerts.weather.gov/"
         try:
-            return (self.settings.get("link_template") or "").format(
-                zone=zone, county=county, id=props.get("id", ""), state=state)
+            return template.format(**values)
         except (KeyError, IndexError, ValueError):
-            return "https://www.weather.gov/"
+            return "https://alerts.weather.gov/"
 
     def make_item(self, props: dict, now: datetime | None = None) -> Item:
         s = self.settings
@@ -313,12 +469,15 @@ class NWSSource(Source):
         when = time_line(props, tz, now)
         url = self.link(props) or None
         hit = [c for c in self.codes() if c in ugc]
+        focus = s.get("area_focus", "mine_first")
+        priority = self.my_positions(props) if focus != "nws_order" else set()
 
         def build(short: bool) -> Item:
             ab = (lambda t: abbreviate(t, pairs)) if short else (lambda t: t)
             title = f"{marker} {prefix}{ab(event)}"
             body = [
-                Line("📍 " + ab(format_areas(props.get("areaDesc", ""), counties, max_areas, short)),
+                Line("📍 " + ab(format_areas(props.get("areaDesc", ""), counties, max_areas, short,
+                                             priority, only_mine=focus == "only_mine")),
                      essential=True),
                 Line(when, essential=True),
                 Line(ab(info)),

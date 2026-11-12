@@ -72,7 +72,10 @@ def nws(settings=None):
     s = NWSSource.defaults()
     s.update({"enabled": True, "areas": [{"code": "INC097", "label": "Marion", "enabled": True},
                                          {"code": "INZ040", "label": "", "enabled": True}],
-              "default_hashtags": ["INwx", "WeatherAlert"]})
+              "default_hashtags": ["INwx", "WeatherAlert"],
+              # what the NWS lookup would return (tests run offline)
+              "zone_info": {"INC097": {"name": "Marion", "state": "IN", "zone": "INZ040", "county": "INC097"},
+                            "INZ040": {"name": "Marion", "state": "IN", "zone": "INZ040", "county": "INC097"}}})
     s.update(settings or {})
     return NWSSource(s, Context(timezone="America/Indiana/Indianapolis"))
 
@@ -145,7 +148,7 @@ def test_nws_tornado_warning():
     r = PUBLISHERS["bluesky"](PUBLISHERS["bluesky"].defaults(), Context()).render(item)
     print("\n" + r.text)
     assert r.text.startswith("🔴 Tornado Warning")
-    assert "Boone, Hamilton, Marion counties, IN" in r.text
+    assert "Marion, Boone, Hamilton counties, IN" in r.text   # watched county first
     assert "Until 4:45 PM EST" in r.text
     assert "Tornado: radar indicated" in r.text
     assert "quarter-size (1\") hail" in r.text

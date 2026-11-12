@@ -138,6 +138,29 @@ class Storage:
             (status, error, post_url, text, attempts, nxt, iso(now()), uid, publisher),
         )
 
+    def requeue(self, uid: str, publisher: str) -> bool:
+        """Send an item again (e.g. one handled during a dry run)."""
+        cur = self._q(
+            "UPDATE deliveries SET status='pending', attempts=0, last_error=NULL, next_try=?, updated_at=?"
+            " WHERE uid=? AND publisher=? AND status!='sent'",
+            (iso(now()), iso(now()), uid, publisher))
+        return cur.rowcount == 1
+
+    def active_dry_runs(self) -> list[dict]:
+        """Dry-run deliveries of items that expire and haven't yet (alerts)."""
+        rows = self._all(
+            "SELECT d.uid, d.publisher, i.payload FROM deliveries d JOIN items i ON i.uid=d.uid"
+            " WHERE d.status='dry_run'")
+        out = []
+        for r in rows:
+            exp = json.loads(r["payload"]).get("expires_at")
+            try:
+                if exp and datetime.fromisoformat(exp) > now():
+                    out.append({"uid": r["uid"], "publisher": r["publisher"]})
+            except ValueError:
+                pass
+        return out
+
     def recent(self, limit: int = 50) -> list[dict]:
         return self._all(
             "SELECT d.*, i.title, i.url, i.source, i.target FROM deliveries d"
