@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 GENERAL_FIELDS = [
     Field("dry_run", "Dry run (compose posts but don't send them)", "bool", default=True,
-          help="Turn off when your previews look right. Posts composed during dry run are not sent automatically; use "post now" on the Dashboard."),
+          help="Turn off when your previews look right. Posts composed during dry run are not sent automatically; use 'post now' on the Dashboard."),
     Field("timezone", "Time zone for alert times", default="America/Indiana/Indianapolis"),
     Field("max_attempts", "Retries before giving up on a post", "int", default=5),
     Field("log_level", "Log level", "select", default="INFO", options=["DEBUG", "INFO", "WARNING"]),
