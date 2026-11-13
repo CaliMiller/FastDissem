@@ -22,6 +22,21 @@ from .config import ConfigStore
 from .engine import Engine
 from .storage import Storage
 
+DEFAULT_PORT = 8787
+
+
+def port_problem(host: str, port: int) -> str | None:
+    """Why the web UI can't listen on host:port, or None if it can."""
+    import socket
+    fam = socket.AF_INET6 if ":" in host else socket.AF_INET
+    try:
+        with socket.socket(fam, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind((host, port))
+    except OSError as e:
+        return e.strerror or str(e)
+    return None
+
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="fastdissem", description="Fast Dissem – fast dissemination")
@@ -95,13 +110,28 @@ def main(argv=None) -> int:
     port = args.port or int(cfg["web"].get("port", 8787))
     if host not in ("127.0.0.1", "localhost", "::1") and not cfg["web"].get("password"):
         log.warning("Web UI is reachable from the network WITHOUT a password. Set one in Settings → Web UI.")
-    try:
-        from waitress import serve  # optional, nicer production server
-        log.info("Web UI on http://%s:%s (waitress)", host, port)
-        serve(app, host=host, port=port, threads=4)
-    except ImportError:
-        log.info("Web UI on http://%s:%s", host, port)
-        app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True)
+    def serve_on(p: int) -> None:
+        try:
+            from waitress import serve  # optional, nicer production server
+        except ImportError:
+            serve = None
+        log.info("Web UI on http://%s:%s%s", host, p, " (waitress)" if serve else "")
+        if serve:
+            serve(app, host=host, port=p, threads=4)
+        else:
+            app.run(host=host, port=p, debug=False, use_reloader=False, threaded=True)
+
+    problem = port_problem(host, port)
+    if problem and port != DEFAULT_PORT:
+        # A bad port must not take the posting engine down with it.
+        hint = (" Ports below 1024 (like 80) need permission: update Fast Dissem with the "
+                "installer, which grants it." if port < 1024 else "")
+        log.error("Can't open the web UI on port %s: %s.%s", port, problem, hint)
+        log.warning("Falling back to port %s – change the port in Settings → Web UI.", DEFAULT_PORT)
+        storage.event("error", f"Web UI couldn't use port {port} ({problem}), so it is on port "
+                               f"{DEFAULT_PORT} instead.{hint}")
+        port = DEFAULT_PORT
+    serve_on(port)
     return 0
 
 
