@@ -106,6 +106,8 @@ ExecStart=$APP_DIR/.venv/bin/python -m fastdissem run --data-dir $APP_DIR/data
 Restart=on-failure
 RestartSec=10
 NoNewPrivileges=true
+# lets the web UI use ports below 1024, such as 80, without running as root
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target

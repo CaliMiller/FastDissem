@@ -32,7 +32,8 @@ WEB_FIELDS = [
           help="Required whenever the UI is reachable from other computers."),
     Field("host", "Listen address", default="127.0.0.1",
           help="127.0.0.1 = this computer only. 0.0.0.0 = your network (set a password!). Restart to apply."),
-    Field("port", "Port", "int", default=8787),
+    Field("port", "Port", "int", default=8787,
+          help="Restart to apply. If the port can't be used, the UI falls back to 8787."),
 ]
 SOURCE_COMMON = [
     Field("interval_seconds", "Check every (seconds)", "int", default=300),
